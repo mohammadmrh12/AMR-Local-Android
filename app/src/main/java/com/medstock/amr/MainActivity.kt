@@ -9,6 +9,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -35,9 +37,9 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private val Burgundy = Color(0xFF741F36)
-private val Orange = Color(0xFFF0A044)
-private val SoftBackground = Color(0xFFFFF9F7)
+private val Burgundy = Color(0xFF455A64)
+private val Orange = Color(0xFF607D8B)
+private val SoftBackground = Color(0xFFF7F8FA)
 
 private data class Product(
     val row: Int,
@@ -91,10 +93,9 @@ private fun DropdownField(
             readOnly = true,
             label = { Text(label, fontSize = 12.sp) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().clickable { expanded = true },
             singleLine = true
         )
-        Box(Modifier.matchParentSize().clickable { expanded = true })
         DropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
@@ -150,7 +151,7 @@ fun AmrScreen() {
     var hospitalPopulation by remember { mutableStateOf(prefs.getString("hospital", "") ?: "") }
     var communityPopulation by remember { mutableStateOf(prefs.getString("community", "") ?: "") }
     var query by remember { mutableStateOf("") }
-    var selectorExpanded by remember { mutableStateOf(false) }
+    var hospitalName by remember { mutableStateOf(prefs.getString("hospital_name", "مستشفى الحبوبي التعليمي") ?: "مستشفى الحبوبي التعليمي") }
     var favorites by remember {
         mutableStateOf(prefs.getStringSet("favorites", emptySet())?.toSet() ?: emptySet())
     }
@@ -179,25 +180,21 @@ fun AmrScreen() {
     }
     var showHelp by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("تُحفظ البيانات محلياً على الجهاز.") }
-    LaunchedEffect(year, month, hospitalPopulation, communityPopulation) {
+    LaunchedEffect(year, month, hospitalPopulation, communityPopulation, hospitalName) {
         prefs.edit()
             .putString("year", year)
             .putString("month", month)
             .putString("hospital", hospitalPopulation)
             .putString("community", communityPopulation)
+            .putString("hospital_name", hospitalName)
             .apply()
     }
     val shareLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {}
 
-    val filtered = remember(products, query, favorites) {
-        products.filter {
-            it.label.contains(query, ignoreCase = true) ||
-                it.code.contains(query, ignoreCase = true) ||
-                it.strength.contains(query, ignoreCase = true) ||
-                it.form.contains(query, ignoreCase = true)
-        }.sortedWith(
+    val filtered = remember(products, favorites) {
+        products.sortedWith(
             compareByDescending<Product> { favorites.contains(it.row.toString()) }
-                .thenBy { it.label }
+                .thenBy { it.row }
         )
     }
 
@@ -216,6 +213,7 @@ fun AmrScreen() {
             .putString("month", month)
             .putString("hospital", hospitalPopulation)
             .putString("community", communityPopulation)
+            .putString("hospital_name", hospitalName)
             .putStringSet("favorites", favorites)
             .apply()
     }
@@ -240,9 +238,9 @@ fun AmrScreen() {
             val hospitalPop = parseNonNegativeWholeNumber(hospitalPopulation, "عدد سكان المستشفى")
             val parsedCounts = products.associate { product ->
                 val entry = counts[product.row] ?: PackageCounts()
-                val community = if (entry.community.isBlank()) 0.0
+                val community = if (entry.community.isBlank()) null
                     else parseNonNegativeWholeNumber(entry.community, "كمية المجتمع: ${product.label}")
-                val hospital = if (entry.hospital.isBlank()) 0.0
+                val hospital = if (entry.hospital.isBlank()) null
                     else parseNonNegativeWholeNumber(entry.hospital, "كمية المستشفى: ${product.label}")
                 product.row to (community to hospital)
             }
@@ -251,7 +249,7 @@ fun AmrScreen() {
             check(reportsDir.exists() || reportsDir.mkdirs()) { "تعذر إنشاء مجلد التقارير." }
             val output = File(
                 reportsDir,
-                "al_habbubi_hospital_${selectedYear}_${selectedMonth.toString().padStart(2, '0')}.xlsx"
+                "${hospitalName.trim().ifBlank { "مستشفى الحبوبي التعليمي" }}_${selectedYear}_${selectedMonth.toString().padStart(2, '0')}.xlsx"
             )
 
             context.assets.open("amr_template.xlsx").use { input ->
@@ -271,19 +269,27 @@ fun AmrScreen() {
                         headerRow.getCell(column, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK)
                             .setCellValue(selectedYear.toDouble())
                     }
+                    workbook.setForceFormulaRecalculation(true)
 
                     products.forEach { product ->
                         val excelRowIndex = product.row - 1
                         require(excelRowIndex >= 2) { "رقم صف غير صالح للصنف: ${product.label}" }
                         val row = productSheet.getRow(excelRowIndex)
                             ?: error("صف الصنف غير موجود في Excel: ${product.label}")
-                        val values = parsedCounts[product.row] ?: (0.0 to 0.0)
-                        row.getCell(32, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK)
-                            .setCellValue(values.first + values.second)
-                        row.getCell(33, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK)
-                            .setCellValue(values.first)
-                        row.getCell(34, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK)
-                            .setCellValue(values.second)
+                        val values = parsedCounts[product.row] ?: (null to null)
+                        if (values.first == null && values.second == null) {
+                            row.getCell(32)?.setBlank()
+                            row.getCell(33)?.setBlank()
+                            row.getCell(34)?.setBlank()
+                        } else {
+                            val community = values.first ?: 0.0
+                            val hospital = values.second ?: 0.0
+                            row.getCell(32, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).setCellValue(community + hospital)
+                            if (values.first == null) row.getCell(33)?.setBlank()
+                            else row.getCell(33, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).setCellValue(community)
+                            if (values.second == null) row.getCell(34)?.setBlank()
+                            else row.getCell(34, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).setCellValue(hospital)
+                        }
                     }
 
                     FileOutputStream(output).use { stream -> workbook.write(stream) }
@@ -329,7 +335,7 @@ fun AmrScreen() {
         }
     ) { padding ->
         Column(
-            Modifier.padding(padding).fillMaxSize().padding(horizontal = 12.dp, vertical = 8.dp),
+            Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(7.dp)
         ) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -362,44 +368,12 @@ fun AmrScreen() {
             }
 
             OutlinedTextField(
-                value = query,
-                onValueChange = { query = it; selectorExpanded = true },
-                label = { Text("ابحث عن المضاد الحيوي") },
-                placeholder = { Text("الاسم أو ATC أو الجرعة") },
+                value = hospitalName,
+                onValueChange = { hospitalName = it },
+                label = { Text("اسم المستشفى في التقرير") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
-            Box(Modifier.fillMaxWidth()) {
-                OutlinedButton(
-                    onClick = { selectorExpanded = !selectorExpanded },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Text("▼ اختيار المضاد الحيوي من القائمة", maxLines = 1)
-                }
-                DropdownMenu(
-                    expanded = selectorExpanded,
-                    onDismissRequest = { selectorExpanded = false },
-                    modifier = Modifier.fillMaxWidth(0.92f).heightIn(max = 360.dp).background(Color.White)
-                ) {
-                    filtered.take(150).forEach { product ->
-                        DropdownMenuItem(
-                            text = {
-                                Column {
-                                    Text(product.label, fontWeight = FontWeight.Medium)
-                                    Text(
-                                        listOf(product.strength, product.form, product.code)
-                                            .filter(String::isNotBlank).joinToString(" • "),
-                                        fontSize = 11.sp,
-                                        color = Color.DarkGray
-                                    )
-                                }
-                            },
-                            onClick = { query = product.label; selectorExpanded = false }
-                        )
-                    }
-                }
-            }
 
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text("المضادات", fontWeight = FontWeight.Bold, color = Burgundy)
@@ -407,12 +381,8 @@ fun AmrScreen() {
                 Text("${filtered.size} صنف", fontSize = 12.sp)
             }
 
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-                contentPadding = PaddingValues(bottom = 4.dp)
-            ) {
-                items(filtered, key = { it.row }) { product ->
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                filtered.forEach { product ->
                     val entry = counts[product.row] ?: PackageCounts()
                     val communityValue = entry.community.toLongOrNull() ?: 0L
                     val hospitalValue = entry.hospital.toLongOrNull() ?: 0L
@@ -435,8 +405,8 @@ fun AmrScreen() {
                                     horizontalAlignment = Alignment.End,
                                     verticalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
-                                    if (product.strength.isNotBlank()) Badge(product.strength, Burgundy)
-                                    if (product.form.isNotBlank()) Badge(product.form, Orange, true)
+                                    if (product.strength.isNotBlank()) Badge(product.strength, Color(0xFFE8EDF0), true)
+                                    if (product.form.isNotBlank()) Badge(product.form, Color(0xFFE8EDF0), true)
                                 }
                                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                     Text(product.label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
@@ -528,7 +498,7 @@ fun AmrScreen() {
             title = { Text("عن التطبيق والتعليمات") },
             text = {
                 Text(
-                    "تطبيق محلي لإعداد تقرير وحدة السيطرة على مقاومة مضادات المايكروبات. اختر السنة والشهر وأدخل أعداد السكان. لكل صنف أدخل كمية المجتمع وكمية المستشفى بصورة منفصلة؛ يحسب التطبيق المجموع ويضع القيم في أعمدتها الصحيحة في Excel. يمكنك البحث وإضافة الأصناف للمفضلة. العنابي للجرعة/التركيز والبرتقالي للشكل الدوائي. زر حفظ وإرسال ينشئ نسخة من القالب ويحفظها داخل التطبيق ثم يفتح قائمة المشاركة.\n\nتم التصميم بواسطة الصيدلاني محمد رحيم."
+                    "تطبيق محلي لإعداد تقرير مقاومة مضادات المايكروبات. اختر السنة والشهر وأدخل أعداد السكان، ثم أدخل الكميات عند توفرها؛ الخانات المتروكة فارغة تبقى فارغة في ملف Excel. جميع المضادات تظهر في الصفحة، والمفضلة ذات النجمة تظهر في المقدمة. يمكنك تعديل اسم المستشفى من الحقل أعلى قائمة المضادات.\n\nشرح صفحات ملف Excel:\n• Macro: معلومات وتعريفات عامة ومؤشرات التقرير.\n• Availability Data: بيانات توفر المضادات ومعلومات الإتاحة.\n• Population Data: سنة التقرير وأعداد السكان الكلية والمجتمع والمستشفى.\n• Product Data: قائمة الأصناف وأكوادها وبيانات الكميات حسب السنة.\n• ATC: تصنيف المضادات حسب نظام التصنيف التشريحي العلاجي الكيميائي.\n• DDD: الجرعة اليومية المحددة القياسية المستخدمة للمقارنة الإحصائية، وليست بالضرورة جرعة المريض.\n• DDD Combination: بيانات حساب الجرعات اليومية المحددة للمستحضرات المركبة.\n• Conversion: معاملات التحويل التي يستخدمها القالب لحساب المؤشرات.\n\nأدخل الكميات كأعداد صحيحة غير سالبة. زر حفظ وإرسال ينشئ نسخة من القالب ثم يفتح قائمة المشاركة.\n\nتم التصميم بواسطة الصيدلاني محمد رحيم."
                 )
             },
             confirmButton = {
