@@ -48,7 +48,8 @@ private data class Product(
     val label: String,
     val code: String,
     val strength: String,
-    val form: String
+    val form: String,
+    val packSize: String
 )
 
 private data class PackageCounts(val community: String = "", val hospital: String = "")
@@ -135,7 +136,8 @@ fun AmrScreen() {
                 label = item.getString("label").trim(),
                 code = item.optString("code").trim(),
                 strength = item.optString("strength").trim(),
-                form = item.optString("form").trim()
+                form = item.optString("form").trim(),
+                packSize = item.optString("packSize").trim()
             )
         }.distinctBy { it.row }
     }
@@ -423,7 +425,7 @@ fun AmrScreen() {
                                     horizontalAlignment = Alignment.End,
                                     verticalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
-                                    if (product.strength.isNotBlank()) Badge(product.strength, Color(0xFFE8EDF0), true)
+                                    if (product.strength.isNotBlank()) Badge(product.strength, Color(0xFFE8EDF0), true, Modifier.widthIn(min = 72.dp, max = 92.dp).heightIn(min = 28.dp))
                                     val dosageForm = product.form.ifBlank {
                                         when {
                                             Regex("\\b(capsule|capsules|cap)\\b", RegexOption.IGNORE_CASE).containsMatchIn(product.label) -> "Capsule"
@@ -438,7 +440,9 @@ fun AmrScreen() {
                                             else -> ""
                                         }
                                     }
-                                    if (dosageForm.isNotBlank()) Badge(dosageForm, Color(0xFFE8EDF0), true)
+                                    if (dosageForm.isNotBlank()) Badge(dosageForm, Color(0xFFE8EDF0), true, Modifier.widthIn(min = 72.dp, max = 92.dp).heightIn(min = 28.dp))
+                                    val packSize = product.packSize.ifBlank { extractPackSize(product.label) }
+                                    if (packSize.isNotBlank()) Badge(packSize, Color(0xFFE8EDF0), true, Modifier.widthIn(min = 72.dp, max = 92.dp).heightIn(min = 28.dp))
                                 }
                                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                     Text(product.label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
@@ -535,17 +539,26 @@ fun AmrScreen() {
 }
 
 @Composable
-private fun Badge(text: String, color: Color, dark: Boolean = false) {
+private fun Badge(text: String, color: Color, dark: Boolean = false, modifier: Modifier = Modifier) {
     Box(
-        Modifier.background(color, RoundedCornerShape(5.dp)).padding(horizontal = 6.dp, vertical = 4.dp),
+        modifier.widthIn(min = 72.dp, max = 92.dp).heightIn(min = 28.dp)
+            .background(color, RoundedCornerShape(5.dp)).padding(horizontal = 4.dp, vertical = 3.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text,
-            fontSize = 10.sp,
+            fontSize = 9.sp,
             maxLines = 2,
             color = if (dark) Color(0xFF3D2512) else Color.White,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Medium,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            lineHeight = 11.sp
         )
     }
+}
+
+private fun extractPackSize(label: String): String {
+    val match = Regex("\\b(\\d+\\s*(?:tabs?|tablets?|caps?|capsules?|vials?|amps?|ampoules?|ml|g|mg|units?|pieces?|pcs))\\b", RegexOption.IGNORE_CASE)
+        .find(label) ?: return ""
+    return match.value.replace(Regex("\\s+"), " ").trim()
 }
