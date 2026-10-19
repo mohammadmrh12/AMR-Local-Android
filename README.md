@@ -1,14 +1,33 @@
 # AMR Local — Al-Habbubi Hospital
 
-Private Android project for local monthly antimicrobial-resistance reporting.
+Private, offline-first Android app for local antimicrobial-resistance reporting.
 
-## Intended features
-- Offline-first Android app; no server or account required.
-- Year and month dropdowns.
-- Hospital and community population inputs.
-- Searchable antibiotic list with favorites and dosage/form badges.
-- Export a copy of the original Excel workbook, save it in app storage, and share it through Android's share sheet.
-- Arabic help screen credited to Pharmacist Mohammad Raheem.
+## Current features
+- Android app built with Kotlin, Jetpack Compose and Material 3.
+- Year and month dropdowns; values and population inputs are saved locally.
+- Searchable antibiotic catalogue with ATC code, strength/dose and dosage-form badges.
+- Favorites and quantity entry for each antibiotic.
+- Creates a report copy from the bundled original Excel template, fills the selected year, population values and entered quantities, saves it in app storage, then opens Android's share sheet.
+- Arabic in-app instructions; burgundy/orange interface.
+- No account or backend required.
 
-## Build status
-Project repository initialized on MohammadsMini4. The full Android source and the original `al habbubi hospital.xlsx` template still need to be transferred into this repository before the app can be built. Do not treat this repository as a buildable release yet.
+## Project layout
+- `app/src/main/java/com/medstock/amr/MainActivity.kt` — Android UI and report generation.
+- `app/src/main/assets/products.json` — searchable antibiotic catalogue.
+- `app/src/main/assets/amr_template.xlsx` — bundled Excel workbook template.
+
+## Build
+- JDK 17
+- Android SDK (compile SDK 35)
+- Gradle 8.9
+
+From the project root:
+
+```sh
+JAVA_HOME=/path/to/jdk-17 /path/to/gradle-8.9/bin/gradle --no-daemon assembleDebug
+```
+
+APK output: `app/build/outputs/apk/debug/app-debug.apk`.
+
+## Status
+Debug APK build succeeded on the Mac development machine. The app has not yet been confirmed through an on-device install and runtime test. The report workbook output should be validated against the expected AMR reporting workflow before production use.
