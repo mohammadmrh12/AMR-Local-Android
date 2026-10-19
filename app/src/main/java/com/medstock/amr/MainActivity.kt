@@ -93,9 +93,9 @@ private fun DropdownField(
             value = value,
             onValueChange = {},
             readOnly = true,
-            label = { Text(label, fontSize = 12.sp) },
+            label = { Text(label, fontSize = 12.sp, maxLines = 1) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-            modifier = Modifier.fillMaxWidth().clickable { expanded = true }.height(56.dp),
+            modifier = Modifier.fillMaxWidth().clickable { expanded = true },
             singleLine = true
         )
         DropdownMenu(
@@ -149,7 +149,7 @@ fun AmrScreen() {
     var hospitalPopulation by remember { mutableStateOf(prefs.getString("hospital", "") ?: "") }
     var communityPopulation by remember { mutableStateOf(prefs.getString("community", "") ?: "") }
     var query by remember { mutableStateOf("") }
-    var hospitalName by remember { mutableStateOf(prefs.getString("hospital_name", "al habbubi hospital") ?: "al habbubi hospital") }
+    var hospitalName by remember { mutableStateOf((prefs.getString("hospital_name", "al habbubi hospital") ?: "al habbubi hospital").let { if (it.contains("مستشفى") || it.contains("الحبوبي")) "al habbubi hospital" else it }) }
     var favorites by remember {
         mutableStateOf(prefs.getStringSet("favorites", emptySet())?.toSet() ?: emptySet())
     }
@@ -232,8 +232,8 @@ fun AmrScreen() {
                 return parsed.toDouble()
             }
 
-            val communityPop = parseNonNegativeWholeNumber(communityPopulation, "community population")
-            val hospitalPop = parseNonNegativeWholeNumber(hospitalPopulation, "hospital population")
+            val communityPop = if (communityPopulation.isBlank()) null else parseNonNegativeWholeNumber(communityPopulation, "community population")
+            val hospitalPop = if (hospitalPopulation.isBlank()) null else parseNonNegativeWholeNumber(hospitalPopulation, "hospital population")
             val parsedCounts = products.associate { product ->
                 val entry = counts[product.row] ?: PackageCounts()
                 val community = if (entry.community.isBlank()) null
@@ -244,7 +244,7 @@ fun AmrScreen() {
             }
 
             val reportsDir = File(context.filesDir, "reports")
-            check(reportsDir.exists() || reportsDir.mkdirs()) { "تعذر إنشاء مجلد التقارير." }
+            check(reportsDir.exists() || reportsDir.mkdirs()) { "Could not create reports folder." }
             val output = File(
                 reportsDir,
                 "${hospitalName.trim().ifBlank { "al habbubi hospital" }.lowercase(Locale.US).replace(Regex("[^a-z0-9]+"), "_").trim('_')}_${selectedYear}_${selectedMonth.toString().padStart(2, '0')}.xlsx"
@@ -256,9 +256,9 @@ fun AmrScreen() {
                         ?: error("Population Data sheet is missing from the template.")
                     val populationRow = populationSheet.getRow(1) ?: populationSheet.createRow(1)
                     populationRow.getCell(1, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).setCellValue(selectedYear.toDouble())
-                    populationRow.getCell(4, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).setCellValue(communityPop + hospitalPop)
-                    populationRow.getCell(5, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).setCellValue(communityPop)
-                    populationRow.getCell(6, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).setCellValue(hospitalPop)
+                    if (communityPop == null && hospitalPop == null) populationRow.getCell(4)?.setBlank() else populationRow.getCell(4, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).setCellValue((communityPop ?: 0.0) + (hospitalPop ?: 0.0))
+                    if (communityPop == null) populationRow.getCell(5)?.setBlank() else populationRow.getCell(5, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).setCellValue(communityPop)
+                    if (hospitalPop == null) populationRow.getCell(6)?.setBlank() else populationRow.getCell(6, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).setCellValue(hospitalPop)
 
                     val productSheet = workbook.getSheet("Product Data")
                         ?: error("Product Data sheet is missing from the template.")
@@ -348,7 +348,7 @@ fun AmrScreen() {
             verticalArrangement = Arrangement.spacedBy(7.dp)
         ) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                DropdownField("السنة", year, years, Modifier.weight(1f)) { year = it }
+                DropdownField("Year", year, years, Modifier.weight(1f)) { year = it }
                 DropdownField(
                     "Month",
                     months.firstOrNull { it.startsWith(month.padStart(2, '0')) } ?: months[(nowMonth.toIntOrNull() ?: 1) - 1],
@@ -362,7 +362,7 @@ fun AmrScreen() {
                     value = hospitalPopulation,
                     onValueChange = { hospitalPopulation = it },
                     label = { Text("Hospital population", fontSize = 11.sp) },
-                    modifier = Modifier.weight(1f).height(56.dp),
+                    modifier = Modifier.weight(1f).height(68.dp),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
@@ -370,7 +370,7 @@ fun AmrScreen() {
                     value = communityPopulation,
                     onValueChange = { communityPopulation = it },
                     label = { Text("Community population", fontSize = 11.sp) },
-                    modifier = Modifier.weight(1f).height(56.dp),
+                    modifier = Modifier.weight(1f).height(68.dp),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
@@ -380,7 +380,7 @@ fun AmrScreen() {
                 value = hospitalName,
                 onValueChange = { hospitalName = it },
                 label = { Text("Hospital name in report") },
-                modifier = Modifier.fillMaxWidth().height(56.dp),
+                modifier = Modifier.fillMaxWidth().height(68.dp),
                 singleLine = true
             )
 
@@ -457,7 +457,7 @@ fun AmrScreen() {
                                         }
                                     },
                                     label = { Text("Community qty", fontSize = 10.sp) },
-                                    modifier = Modifier.weight(1f).height(56.dp),
+                                    modifier = Modifier.weight(1f).height(68.dp),
                                     singleLine = true,
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                                 )
@@ -471,7 +471,7 @@ fun AmrScreen() {
                                         }
                                     },
                                     label = { Text("Hospital qty", fontSize = 10.sp) },
-                                    modifier = Modifier.weight(1f).height(56.dp),
+                                    modifier = Modifier.weight(1f).height(68.dp),
                                     singleLine = true,
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                                 )
@@ -498,9 +498,11 @@ fun AmrScreen() {
             onDismissRequest = { showHelp = false },
             title = { Text("About & Instructions") },
             text = {
+                Column(Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState())) {
                 Text(
                     "AMR report preparation app. Select the reporting year and month, enter population figures, and enter antibiotic quantities when available. Quantity fields left empty remain blank in the Excel report. All antibiotics are shown, with starred favorites at the top. The hospital name can be edited on the main screen.\n\nExcel worksheet guide:\n• Macro: General report definitions and indicators.\n• Availability Data: Antibiotic availability information.\n• Population Data: Reporting year and total, community, and hospital population figures.\n• Product Data: Product list, codes, and yearly quantity columns.\n• ATC: Anatomical Therapeutic Chemical classification.\n• DDD: Defined Daily Dose, a standard measurement for drug-use statistics, not necessarily a patient dose.\n• DDD Combination: DDD calculations for combination products.\n• Conversion: Conversion factors used in report calculations.\n\nEnter non-negative whole numbers. Use Save & Share to generate the Excel report and open the sharing menu.\n\nDesigned by Pharmacist Mohammad Raheem."
                 )
+                }
             },
             confirmButton = {
                 TextButton(onClick = { showHelp = false }) { Text("Close") }
