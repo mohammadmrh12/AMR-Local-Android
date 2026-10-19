@@ -344,7 +344,7 @@ fun AmrScreen() {
         }
     ) { padding ->
         Column(
-            Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 8.dp),
+            Modifier.padding(padding).fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(7.dp)
         ) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -361,16 +361,16 @@ fun AmrScreen() {
                 OutlinedTextField(
                     value = hospitalPopulation,
                     onValueChange = { hospitalPopulation = it },
-                    label = { Text("Hospital population", fontSize = 11.sp) },
-                    modifier = Modifier.weight(1f).height(56.dp),
+                    label = { Text("Hospital pop.", fontSize = 11.sp, maxLines = 1, softWrap = false) },
+                    modifier = Modifier.weight(1f),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
                 OutlinedTextField(
                     value = communityPopulation,
                     onValueChange = { communityPopulation = it },
-                    label = { Text("Community population", fontSize = 11.sp) },
-                    modifier = Modifier.weight(1f).height(56.dp),
+                    label = { Text("Community pop.", fontSize = 11.sp, maxLines = 1, softWrap = false) },
+                    modifier = Modifier.weight(1f),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
@@ -379,8 +379,8 @@ fun AmrScreen() {
             OutlinedTextField(
                 value = hospitalName,
                 onValueChange = { hospitalName = it },
-                label = { Text("Hospital name in report") },
-                modifier = Modifier.fillMaxWidth().height(56.dp),
+                label = { Text("Hospital name", maxLines = 1, softWrap = false) },
+                modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
 
@@ -456,8 +456,8 @@ fun AmrScreen() {
                                             })
                                         }
                                     },
-                                    label = { Text("Community qty", fontSize = 10.sp) },
-                                    modifier = Modifier.weight(1f).height(56.dp),
+                                    label = { Text("Community", fontSize = 10.sp, maxLines = 1, softWrap = false) },
+                                    modifier = Modifier.weight(1f),
                                     singleLine = true,
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                                 )
@@ -470,8 +470,8 @@ fun AmrScreen() {
                                             })
                                         }
                                     },
-                                    label = { Text("Hospital qty", fontSize = 10.sp) },
-                                    modifier = Modifier.weight(1f).height(56.dp),
+                                    label = { Text("Hospital", fontSize = 10.sp, maxLines = 1, softWrap = false) },
+                                    modifier = Modifier.weight(1f),
                                     singleLine = true,
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                                 )
