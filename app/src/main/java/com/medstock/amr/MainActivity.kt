@@ -149,7 +149,7 @@ fun AmrScreen() {
     var hospitalPopulation by remember { mutableStateOf(prefs.getString("hospital", "") ?: "") }
     var communityPopulation by remember { mutableStateOf(prefs.getString("community", "") ?: "") }
     var query by remember { mutableStateOf("") }
-    var hospitalName by remember { mutableStateOf((prefs.getString("hospital_name", "al habbubi hospital") ?: "al habbubi hospital").let { if (it.contains("مستشفى") || it.contains("الحبوبي")) "al habbubi hospital" else it }) }
+    var hospitalName by remember { mutableStateOf(prefs.getString("hospital_name", "al_habbubi_hospital") ?: "al_habbubi_hospital") }
     var favorites by remember {
         mutableStateOf(prefs.getStringSet("favorites", emptySet())?.toSet() ?: emptySet())
     }
@@ -247,7 +247,7 @@ fun AmrScreen() {
             check(reportsDir.exists() || reportsDir.mkdirs()) { "Could not create reports folder." }
             val output = File(
                 reportsDir,
-                "${hospitalName.trim().ifBlank { "al habbubi hospital" }.lowercase(Locale.US).replace(Regex("[^a-z0-9]+"), "_").trim('_')}_${selectedYear}_${selectedMonth.toString().padStart(2, '0')}.xlsx"
+                "${hospitalName.trim().ifBlank { "al_habbubi_hospital" }.lowercase(Locale.US).replace(Regex("[^a-z0-9]+"), "_").trim('_')}_${selectedYear}_${selectedMonth.toString().padStart(2, '0')}.xlsx"
             )
 
             context.assets.open("amr_template.xlsx").use { input ->
@@ -362,7 +362,7 @@ fun AmrScreen() {
                     value = hospitalPopulation,
                     onValueChange = { hospitalPopulation = it },
                     label = { Text("Hospital population", fontSize = 11.sp) },
-                    modifier = Modifier.weight(1f).height(68.dp),
+                    modifier = Modifier.weight(1f).height(56.dp),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
@@ -370,7 +370,7 @@ fun AmrScreen() {
                     value = communityPopulation,
                     onValueChange = { communityPopulation = it },
                     label = { Text("Community population", fontSize = 11.sp) },
-                    modifier = Modifier.weight(1f).height(68.dp),
+                    modifier = Modifier.weight(1f).height(56.dp),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
@@ -380,7 +380,7 @@ fun AmrScreen() {
                 value = hospitalName,
                 onValueChange = { hospitalName = it },
                 label = { Text("Hospital name in report") },
-                modifier = Modifier.fillMaxWidth().height(68.dp),
+                modifier = Modifier.fillMaxWidth().height(56.dp),
                 singleLine = true
             )
 
@@ -457,7 +457,7 @@ fun AmrScreen() {
                                         }
                                     },
                                     label = { Text("Community qty", fontSize = 10.sp) },
-                                    modifier = Modifier.weight(1f).height(68.dp),
+                                    modifier = Modifier.weight(1f).height(56.dp),
                                     singleLine = true,
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                                 )
@@ -471,7 +471,7 @@ fun AmrScreen() {
                                         }
                                     },
                                     label = { Text("Hospital qty", fontSize = 10.sp) },
-                                    modifier = Modifier.weight(1f).height(68.dp),
+                                    modifier = Modifier.weight(1f).height(56.dp),
                                     singleLine = true,
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                                 )
