@@ -16,6 +16,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,9 +39,9 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private val Burgundy = Color(0xFF455A64)
-private val Orange = Color(0xFF607D8B)
-private val SoftBackground = Color(0xFFF7F8FA)
+private val Burgundy = Color(0xFF741F36)
+private val Orange = Color(0xFFF0A044)
+private val SoftBackground = Color(0xFFFFF9F7)
 
 private data class Product(
     val row: Int,
@@ -93,7 +95,7 @@ private fun DropdownField(
             readOnly = true,
             label = { Text(label, fontSize = 12.sp) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-            modifier = Modifier.fillMaxWidth().clickable { expanded = true },
+            modifier = Modifier.fillMaxWidth().clickable { expanded = true }.height(56.dp),
             singleLine = true
         )
         DropdownMenu(
@@ -139,11 +141,7 @@ fun AmrScreen() {
     val nowMonth = SimpleDateFormat("MM", Locale.US).format(now)
     val years = remember { (2000..((nowYear.toIntOrNull() ?: 2026) + 5)).map(Int::toString) }
     val months = remember {
-        listOf(
-            "01 - كانون الثاني", "02 - شباط", "03 - آذار", "04 - نيسان",
-            "05 - أيار", "06 - حزيران", "07 - تموز", "08 - آب",
-            "09 - أيلول", "10 - تشرين الأول", "11 - تشرين الثاني", "12 - كانون الأول"
-        )
+        listOf("01 - January", "02 - February", "03 - March", "04 - April", "05 - May", "06 - June", "07 - July", "08 - August", "09 - September", "10 - October", "11 - November", "12 - December")
     }
 
     var year by remember { mutableStateOf(prefs.getString("year", nowYear) ?: nowYear) }
@@ -151,7 +149,7 @@ fun AmrScreen() {
     var hospitalPopulation by remember { mutableStateOf(prefs.getString("hospital", "") ?: "") }
     var communityPopulation by remember { mutableStateOf(prefs.getString("community", "") ?: "") }
     var query by remember { mutableStateOf("") }
-    var hospitalName by remember { mutableStateOf(prefs.getString("hospital_name", "مستشفى الحبوبي التعليمي") ?: "مستشفى الحبوبي التعليمي") }
+    var hospitalName by remember { mutableStateOf(prefs.getString("hospital_name", "al habbubi hospital") ?: "al habbubi hospital") }
     var favorites by remember {
         mutableStateOf(prefs.getStringSet("favorites", emptySet())?.toSet() ?: emptySet())
     }
@@ -179,7 +177,7 @@ fun AmrScreen() {
         })
     }
     var showHelp by remember { mutableStateOf(false) }
-    var status by remember { mutableStateOf("تُحفظ البيانات محلياً على الجهاز.") }
+    var status by remember { mutableStateOf("Data is saved locally on this device.") }
     LaunchedEffect(year, month, hospitalPopulation, communityPopulation, hospitalName) {
         prefs.edit()
             .putString("year", year)
@@ -220,28 +218,28 @@ fun AmrScreen() {
 
     fun exportAndShare() {
         try {
-            val selectedYear = year.toIntOrNull() ?: error("اختر السنة.")
-            val selectedMonth = month.take(2).toIntOrNull() ?: error("اختر الشهر.")
-            require(selectedYear in 2000..2100) { "السنة غير صحيحة." }
-            require(selectedMonth in 1..12) { "الشهر غير صحيح." }
+            val selectedYear = year.toIntOrNull() ?: error("Select a year.")
+            val selectedMonth = month.take(2).toIntOrNull() ?: error("Select a month.")
+            require(selectedYear in 2000..2100) { "Invalid year." }
+            require(selectedMonth in 1..12) { "Invalid month." }
 
             fun parseNonNegativeWholeNumber(value: String, label: String): Double {
                 val trimmed = value.trim()
-                require(trimmed.isNotEmpty()) { "أدخل $label." }
+                require(trimmed.isNotEmpty()) { "Enter $label." }
                 val parsed = trimmed.toLongOrNull()
-                    ?: error("$label يجب أن يكون عدداً صحيحاً من دون كسور.")
-                require(parsed >= 0) { "$label لا يمكن أن يكون سالباً." }
+                    ?: error("$label must be a whole number.")
+                require(parsed >= 0) { "$label cannot be negative." }
                 return parsed.toDouble()
             }
 
-            val communityPop = parseNonNegativeWholeNumber(communityPopulation, "عدد سكان المجتمع")
-            val hospitalPop = parseNonNegativeWholeNumber(hospitalPopulation, "عدد سكان المستشفى")
+            val communityPop = parseNonNegativeWholeNumber(communityPopulation, "community population")
+            val hospitalPop = parseNonNegativeWholeNumber(hospitalPopulation, "hospital population")
             val parsedCounts = products.associate { product ->
                 val entry = counts[product.row] ?: PackageCounts()
                 val community = if (entry.community.isBlank()) null
-                    else parseNonNegativeWholeNumber(entry.community, "كمية المجتمع: ${product.label}")
+                    else parseNonNegativeWholeNumber(entry.community, "community quantity: ${product.label}")
                 val hospital = if (entry.hospital.isBlank()) null
-                    else parseNonNegativeWholeNumber(entry.hospital, "كمية المستشفى: ${product.label}")
+                    else parseNonNegativeWholeNumber(entry.hospital, "hospital quantity: ${product.label}")
                 product.row to (community to hospital)
             }
 
@@ -249,13 +247,13 @@ fun AmrScreen() {
             check(reportsDir.exists() || reportsDir.mkdirs()) { "تعذر إنشاء مجلد التقارير." }
             val output = File(
                 reportsDir,
-                "${hospitalName.trim().ifBlank { "مستشفى الحبوبي التعليمي" }}_${selectedYear}_${selectedMonth.toString().padStart(2, '0')}.xlsx"
+                "${hospitalName.trim().ifBlank { "al habbubi hospital" }.lowercase(Locale.US).replace(Regex("[^a-z0-9]+"), "_").trim('_')}_${selectedYear}_${selectedMonth.toString().padStart(2, '0')}.xlsx"
             )
 
             context.assets.open("amr_template.xlsx").use { input ->
                 XSSFWorkbook(input).use { workbook ->
                     val populationSheet = workbook.getSheet("Population Data")
-                        ?: error("ورقة Population Data غير موجودة في القالب.")
+                        ?: error("Population Data sheet is missing from the template.")
                     val populationRow = populationSheet.getRow(1) ?: populationSheet.createRow(1)
                     populationRow.getCell(1, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).setCellValue(selectedYear.toDouble())
                     populationRow.getCell(4, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).setCellValue(communityPop + hospitalPop)
@@ -263,8 +261,8 @@ fun AmrScreen() {
                     populationRow.getCell(6, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).setCellValue(hospitalPop)
 
                     val productSheet = workbook.getSheet("Product Data")
-                        ?: error("ورقة Product Data غير موجودة في القالب.")
-                    val headerRow = productSheet.getRow(0) ?: error("صف السنوات غير موجود في Product Data.")
+                        ?: error("Product Data sheet is missing from the template.")
+                    val headerRow = productSheet.getRow(0) ?: error("Year header is missing from Product Data.")
                     listOf(32, 33, 34).forEach { column ->
                         headerRow.getCell(column, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK)
                             .setCellValue(selectedYear.toDouble())
@@ -275,7 +273,7 @@ fun AmrScreen() {
                         val excelRowIndex = product.row - 1
                         require(excelRowIndex >= 2) { "رقم صف غير صالح للصنف: ${product.label}" }
                         val row = productSheet.getRow(excelRowIndex)
-                            ?: error("صف الصنف غير موجود في Excel: ${product.label}")
+                            ?: error("Product row is missing in Excel: ${product.label}")
                         val values = parsedCounts[product.row] ?: (null to null)
                         if (values.first == null && values.second == null) {
                             row.getCell(32)?.setBlank()
@@ -297,7 +295,7 @@ fun AmrScreen() {
             }
 
             persistGeneralSettings()
-            status = "تم إنشاء التقرير وحفظه: ${output.name}"
+            status = "Report created: ${output.name}"
             val uri = androidx.core.content.FileProvider.getUriForFile(
                 context, "${context.packageName}.provider", output
             )
@@ -306,25 +304,36 @@ fun AmrScreen() {
                 putExtra(Intent.EXTRA_STREAM, uri)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
-            shareLauncher.launch(Intent.createChooser(intent, "إرسال تقرير AMR"))
+            shareLauncher.launch(Intent.createChooser(intent, "Share AMR report"))
         } catch (exception: Exception) {
-            status = "تعذر إنشاء التقرير: ${exception.message ?: "تحقق من البيانات"}"
+            status = "Could not create report: ${exception.message ?: "Check the entered data"}"
         }
     }
 
     Scaffold(
         containerColor = SoftBackground,
+        floatingActionButtonPosition = FabPosition.Start,
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = { exportAndShare() },
+                icon = { Icon(Icons.Default.Share, contentDescription = "Save and share Excel report") },
+                text = { Text("Save & Share") },
+                shape = RoundedCornerShape(50),
+                containerColor = Burgundy,
+                contentColor = Color.White
+            )
+        },
         topBar = {
             TopAppBar(
                 title = {
                     Column {
                         Text("AMR", fontWeight = FontWeight.Bold)
-                        Text("مقاومة مضادات المايكروبات", fontSize = 12.sp)
+                        Text("Antimicrobial Resistance", fontSize = 12.sp)
                     }
                 },
                 actions = {
                     TextButton(onClick = { showHelp = true }) {
-                        Text("التعليمات", color = Color.White)
+                        Text("Help", color = Color.White)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -341,7 +350,7 @@ fun AmrScreen() {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 DropdownField("السنة", year, years, Modifier.weight(1f)) { year = it }
                 DropdownField(
-                    "الشهر",
+                    "Month",
                     months.firstOrNull { it.startsWith(month.padStart(2, '0')) } ?: months[(nowMonth.toIntOrNull() ?: 1) - 1],
                     months,
                     Modifier.weight(1.35f)
@@ -352,16 +361,16 @@ fun AmrScreen() {
                 OutlinedTextField(
                     value = hospitalPopulation,
                     onValueChange = { hospitalPopulation = it },
-                    label = { Text("سكان المستشفى", fontSize = 12.sp) },
-                    modifier = Modifier.weight(1f),
+                    label = { Text("Hospital population", fontSize = 11.sp) },
+                    modifier = Modifier.weight(1f).height(56.dp),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
                 OutlinedTextField(
                     value = communityPopulation,
                     onValueChange = { communityPopulation = it },
-                    label = { Text("سكان المجتمع", fontSize = 12.sp) },
-                    modifier = Modifier.weight(1f),
+                    label = { Text("Community population", fontSize = 11.sp) },
+                    modifier = Modifier.weight(1f).height(56.dp),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
@@ -370,15 +379,15 @@ fun AmrScreen() {
             OutlinedTextField(
                 value = hospitalName,
                 onValueChange = { hospitalName = it },
-                label = { Text("اسم المستشفى في التقرير") },
-                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Hospital name in report") },
+                modifier = Modifier.fillMaxWidth().height(56.dp),
                 singleLine = true
             )
 
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("المضادات", fontWeight = FontWeight.Bold, color = Burgundy)
+                Text("Antibiotics", fontWeight = FontWeight.Bold, color = Burgundy)
                 Spacer(Modifier.weight(1f))
-                Text("${filtered.size} صنف", fontSize = 12.sp)
+                Text("${filtered.size} items", fontSize = 12.sp)
             }
 
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -447,8 +456,8 @@ fun AmrScreen() {
                                             })
                                         }
                                     },
-                                    label = { Text("كمية المجتمع", fontSize = 10.sp) },
-                                    modifier = Modifier.weight(1f),
+                                    label = { Text("Community qty", fontSize = 10.sp) },
+                                    modifier = Modifier.weight(1f).height(56.dp),
                                     singleLine = true,
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                                 )
@@ -461,13 +470,13 @@ fun AmrScreen() {
                                             })
                                         }
                                     },
-                                    label = { Text("كمية المستشفى", fontSize = 10.sp) },
-                                    modifier = Modifier.weight(1f),
+                                    label = { Text("Hospital qty", fontSize = 10.sp) },
+                                    modifier = Modifier.weight(1f).height(56.dp),
                                     singleLine = true,
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                                 )
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("المجموع", fontSize = 10.sp, color = Color.Gray)
+                                    Text("Total", fontSize = 10.sp, color = Color.Gray)
                                     Text(
                                         (communityValue + hospitalValue).toString(),
                                         color = Burgundy,
@@ -481,28 +490,20 @@ fun AmrScreen() {
             }
 
             Text(status, fontSize = 11.sp, color = Color.DarkGray, maxLines = 2)
-            Button(
-                onClick = { exportAndShare() },
-                modifier = Modifier.fillMaxWidth().height(50.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Burgundy)
-            ) {
-                Text("حفظ وإرسال ملف Excel", fontWeight = FontWeight.Bold)
-            }
         }
     }
 
     if (showHelp) {
         AlertDialog(
             onDismissRequest = { showHelp = false },
-            title = { Text("عن التطبيق والتعليمات") },
+            title = { Text("About & Instructions") },
             text = {
                 Text(
-                    "تطبيق محلي لإعداد تقرير مقاومة مضادات المايكروبات. اختر السنة والشهر وأدخل أعداد السكان، ثم أدخل الكميات عند توفرها؛ الخانات المتروكة فارغة تبقى فارغة في ملف Excel. جميع المضادات تظهر في الصفحة، والمفضلة ذات النجمة تظهر في المقدمة. يمكنك تعديل اسم المستشفى من الحقل أعلى قائمة المضادات.\n\nشرح صفحات ملف Excel:\n• Macro: معلومات وتعريفات عامة ومؤشرات التقرير.\n• Availability Data: بيانات توفر المضادات ومعلومات الإتاحة.\n• Population Data: سنة التقرير وأعداد السكان الكلية والمجتمع والمستشفى.\n• Product Data: قائمة الأصناف وأكوادها وبيانات الكميات حسب السنة.\n• ATC: تصنيف المضادات حسب نظام التصنيف التشريحي العلاجي الكيميائي.\n• DDD: الجرعة اليومية المحددة القياسية المستخدمة للمقارنة الإحصائية، وليست بالضرورة جرعة المريض.\n• DDD Combination: بيانات حساب الجرعات اليومية المحددة للمستحضرات المركبة.\n• Conversion: معاملات التحويل التي يستخدمها القالب لحساب المؤشرات.\n\nأدخل الكميات كأعداد صحيحة غير سالبة. زر حفظ وإرسال ينشئ نسخة من القالب ثم يفتح قائمة المشاركة.\n\nتم التصميم بواسطة الصيدلاني محمد رحيم."
+                    "AMR report preparation app. Select the reporting year and month, enter population figures, and enter antibiotic quantities when available. Quantity fields left empty remain blank in the Excel report. All antibiotics are shown, with starred favorites at the top. The hospital name can be edited on the main screen.\n\nExcel worksheet guide:\n• Macro: General report definitions and indicators.\n• Availability Data: Antibiotic availability information.\n• Population Data: Reporting year and total, community, and hospital population figures.\n• Product Data: Product list, codes, and yearly quantity columns.\n• ATC: Anatomical Therapeutic Chemical classification.\n• DDD: Defined Daily Dose, a standard measurement for drug-use statistics, not necessarily a patient dose.\n• DDD Combination: DDD calculations for combination products.\n• Conversion: Conversion factors used in report calculations.\n\nEnter non-negative whole numbers. Use Save & Share to generate the Excel report and open the sharing menu.\n\nDesigned by Pharmacist Mohammad Raheem."
                 )
             },
             confirmButton = {
-                TextButton(onClick = { showHelp = false }) { Text("إغلاق") }
+                TextButton(onClick = { showHelp = false }) { Text("Close") }
             }
         )
     }
