@@ -43,6 +43,7 @@ class MainActivity : ComponentActivity() {
  }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable private fun DropdownField(label:String,value:String,options:List<String>,modifier:Modifier=Modifier,onSelected:(String)->Unit) {
  var expanded by remember { mutableStateOf(false) }
  Box(modifier) {
@@ -54,6 +55,7 @@ class MainActivity : ComponentActivity() {
  }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable fun AmrScreen() {
  val context=LocalContext.current
  val products= remember {
