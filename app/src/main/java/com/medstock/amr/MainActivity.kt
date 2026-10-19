@@ -88,17 +88,21 @@ private fun DropdownField(
     onSelected: (String) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
-    Box(modifier) {
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = !expanded },
+        modifier = modifier
+    ) {
         OutlinedTextField(
             value = value,
             onValueChange = {},
             readOnly = true,
             label = { Text(label, fontSize = 12.sp, maxLines = 1) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-            modifier = Modifier.fillMaxWidth().clickable { expanded = true },
+            modifier = Modifier.menuAnchor().fillMaxWidth(),
             singleLine = true
         )
-        DropdownMenu(
+        ExposedDropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
             modifier = Modifier.heightIn(max = 360.dp).background(Color.White)
@@ -247,11 +251,16 @@ fun AmrScreen() {
             check(reportsDir.exists() || reportsDir.mkdirs()) { "Could not create reports folder." }
             val output = File(
                 reportsDir,
-                "${hospitalName.trim().ifBlank { "al_habbubi_hospital" }.lowercase(Locale.US).replace(Regex("[^a-z0-9]+"), "_").trim('_')}_${selectedYear}_${selectedMonth.toString().padStart(2, '0')}.xlsx"
+                "${hospitalName.trim().ifBlank { "al_habbubi_hospital" }.lowercase(Locale.US).replace(Regex("[^a-z0-9]+"), "_").trim('_')}_${selectedYear}_${selectedMonth.toString().padStart(2, '0')}_${months[selectedMonth - 1].substringAfter(" - ").take(3)}.xlsx"
             )
 
             context.assets.open("amr_template.xlsx").use { input ->
                 XSSFWorkbook(input).use { workbook ->
+                    val macroSheet = workbook.getSheet("Macro")
+                        ?: error("Macro sheet is missing from the template.")
+                    val macroYearRow = macroSheet.getRow(1) ?: macroSheet.createRow(1)
+                    macroYearRow.getCell(4, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).setCellValue(selectedYear.toDouble())
+
                     val populationSheet = workbook.getSheet("Population Data")
                         ?: error("Population Data sheet is missing from the template.")
                     val populationRow = populationSheet.getRow(1) ?: populationSheet.createRow(1)
@@ -415,7 +424,21 @@ fun AmrScreen() {
                                     verticalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
                                     if (product.strength.isNotBlank()) Badge(product.strength, Color(0xFFE8EDF0), true)
-                                    if (product.form.isNotBlank()) Badge(product.form, Color(0xFFE8EDF0), true)
+                                    val dosageForm = product.form.ifBlank {
+                                        when {
+                                            Regex("\\b(capsule|capsules|cap)\\b", RegexOption.IGNORE_CASE).containsMatchIn(product.label) -> "Capsule"
+                                            Regex("\\b(tablet|tablets|tab)\\b", RegexOption.IGNORE_CASE).containsMatchIn(product.label) -> "Tab"
+                                            Regex("\\b(vial|vials)\\b", RegexOption.IGNORE_CASE).containsMatchIn(product.label) -> "Vial"
+                                            Regex("\\b(suspension|susp)\\b", RegexOption.IGNORE_CASE).containsMatchIn(product.label) -> "Susp"
+                                            Regex("\\b(syrup)\\b", RegexOption.IGNORE_CASE).containsMatchIn(product.label) -> "Syrup"
+                                            Regex("\\b(ampoule|amp|injection)\\b", RegexOption.IGNORE_CASE).containsMatchIn(product.label) -> "Amp"
+                                            Regex("\\b(cream)\\b", RegexOption.IGNORE_CASE).containsMatchIn(product.label) -> "Cream"
+                                            Regex("\\b(ointment)\\b", RegexOption.IGNORE_CASE).containsMatchIn(product.label) -> "Ointment"
+                                            Regex("\\b(drops)\\b", RegexOption.IGNORE_CASE).containsMatchIn(product.label) -> "Drops"
+                                            else -> ""
+                                        }
+                                    }
+                                    if (dosageForm.isNotBlank()) Badge(dosageForm, Color(0xFFE8EDF0), true)
                                 }
                                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                     Text(product.label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
